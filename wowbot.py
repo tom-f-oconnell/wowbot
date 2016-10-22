@@ -141,6 +141,7 @@ h = int(h_re.search(out).groups()[0])
 w = int(w_re.search(out).groups()[0])
 
 # 1 Gbyte
+# TODO actually 2.8 Gb. why?
 max_array_size_bytes = 1e9
 # uint8 should be 1 byte per point
 max_timesteps = round(max_array_size_bytes / (h * w))
@@ -171,7 +172,7 @@ def OnKeyPress(event):
     
     try:
         print('pressed key ' + str(actionmap[event.Key]))
-        actions[actionmap[event.Key], curr] = 1
+        actions[actionmap[str(event.Key)], curr] = 1
     except KeyError:
         missing_keys.add(event.Key)
 
@@ -227,6 +228,13 @@ new_hook.start()
 print("after starting hook manager")
 
 while True:
+    print(str(curr) + '/' + str(max_timesteps))
+    # should be equal to the max tolerable length
+    if curr == len(imgs):
+        print('SAVING DATA...')
+        np.save('video.dat', imgs)
+        np.save('actions.dat', actions)
+
     raw = sc.grab(bbox=(cx, cy, cx+w, cy+h))
     imgs[:, :, :, curr] = np.asarray(raw)
 
@@ -235,7 +243,7 @@ while True:
     #raw.save('sc.png')
 
     if curr >= 1:
-        actions[:, :, curr] = actions[:, :, curr - 1]
+        actions[:, curr] = actions[:, curr - 1]
     else:
         # TODO check for keys currently pressed?
         actions[:, curr] = np.zeros(actions.shape[0], dtype=int)
@@ -245,5 +253,6 @@ while True:
         print(missing_keys)
         print()
 
+    curr = curr + 1
     # TODO verify the delay in the above portion is negligible
     time.sleep(dt)
