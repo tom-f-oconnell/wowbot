@@ -14,7 +14,6 @@ import warnings
 #warnings.simplefilter("ignore", Warning)
 # just using '... 2> /dev/null' for now
 
-# TODO why does it seem like it is missing keys some times when it isn't?
 started = time.time()
 keyset = {'w',
           'F3',
@@ -146,11 +145,13 @@ max_array_size_bytes = 1e9
 # uint8 should be 1 byte per point
 max_timesteps = round(max_array_size_bytes / (h * w))
 
-dt = 0.2 # seconds
+dt = 0.15 # seconds
 num_keys = len(keyset)
 num_mouse_buttons = len(mouseset)
 
-actionmap = dict(zip(sorted(list(keyset.union(mouseset))), range(0, len(keyset))))
+both = keyset.union(mouseset)
+actionmap = dict(zip(sorted(list(both)), range(0, len(both))))
+
 last_action = max(actionmap.values())
 
 # 2 for both mouse coordinates
@@ -232,8 +233,8 @@ while True:
     # should be equal to the max tolerable length
     if curr == len(imgs):
         print('SAVING DATA...')
-        np.save('video.dat', imgs)
-        np.save('actions.dat', actions)
+        np.save('video', imgs)
+        np.save('actions', actions)
 
     raw = sc.grab(bbox=(cx, cy, cx+w, cy+h))
     imgs[:, :, :, curr] = np.asarray(raw)
@@ -248,6 +249,9 @@ while True:
         # TODO check for keys currently pressed?
         actions[:, curr] = np.zeros(actions.shape[0], dtype=int)
 
+    actions[-1, curr] = new_hook.mouse_position_y
+    actions[-2, curr] = new_hook.mouse_position_x
+
     if len(missing_keys) > 0:
         print("MISSING KEYS:")
         print(missing_keys)
@@ -256,3 +260,5 @@ while True:
     curr = curr + 1
     # TODO verify the delay in the above portion is negligible
     time.sleep(dt)
+
+new_hook.cancel()
