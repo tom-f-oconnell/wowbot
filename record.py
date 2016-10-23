@@ -152,6 +152,13 @@ num_mouse_buttons = len(mouseset)
 both = keyset.union(mouseset)
 actionmap = dict(zip(sorted(list(both)), range(0, len(both))))
 
+# make the inverse map for decoding the numpy matrix entries
+num2key = {key: value for (value, key) in actionmap}
+
+# save it for decoding in other scripts
+with open("num2key.p", "wb") as p:
+    pickle.dump(num2key, p)
+
 last_action = max(actionmap.values())
 
 # 2 for both mouse coordinates
