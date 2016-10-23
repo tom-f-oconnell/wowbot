@@ -136,7 +136,10 @@ def get_window_ids():
     return r.findall(out)
 
 def change_focus_to_id(ID):
-    sp.Popen(("wmctrl", "-a", ID))
+    sp.Popen(("wmctrl", "-i", "-a", ID))
+
+def clear_focus():
+    sp.Popen(("wmctrl", "-a", "Desktop"))
 
 """
 try:
@@ -150,14 +153,14 @@ d = display.Display()
 root = d.screen().root
 #win = get_window(d, "World of Warcraft")
 windows = get_windows(d, "World of Warcraft")
-wids = get_window_ids()
+#wids = get_window_ids()
 #quit()
 
 print("FOUND " + str(len(windows)) + " WINDOWS")
 
 root.change_attributes(event_mask = X.KeyPressMask | X.KeyReleaseMask)
-
 currentfocus = None
+switching_period = 0.3
 
 print("Press <ESC> or Ctrl+C to quit")
 while True:
@@ -184,33 +187,40 @@ while True:
             # Ignore alt-tab, as that would be problematic to handle
             if (keycode == 64) or (keycode == 23):
                 continue
+
             stop_grab(d)
             #send_key(d, root, win, keycode)
-            if event.type == X.KeyPress:
-                #print('SENDING KEYCODE: ' + str(keycode))
-                """
-                for ID in wids:
-                    change_focus_to_id(ID)
-                    """
-                for win in windows:
-                    #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
-                    d.set_input_focus(win, X.RevertToParent, int(time.time()))
-                    send_press(win, keycode)
-                    time.sleep(0.5)
-            elif event.type == X.KeyRelease:
-                """
-                for ID in wids:
-                    change_focus_to_id(ID)
-                    """
-                for win in windows:
-                    #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
-                    d.set_input_focus(win, X.RevertToParent, int(time.time()))
-                    send_release(win, keycode)
-                    time.sleep(0.5)
-            #time.sleep(0.15)
+
+            print("KEYCODE=" + str(keycode))
+
+            if keycode == 49 or keycode == 10 or keycode == 21:
+                if event.type == X.KeyPress:
+                    #print('SENDING KEYCODE: ' + str(keycode))
+                    for win in windows:
+                        ID = '0x0' + format(win.__window__(), '02x')
+                        change_focus_to_id(ID)
+
+                        # didn't seem to work
+                        #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
+                        #d.set_input_focus(win, X.RevertToParent, int(time.time()))
+
+                        send_press(win, keycode)
+                        time.sleep(switching_period)
+                    clear_focus()
+                elif event.type == X.KeyRelease:
+                    for win in windows:
+                        ID = '0x0' + format(win.__window__(), '02x')
+                        change_focus_to_id(ID)
+
+                        # didn't seem to work
+                        #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
+                        #d.set_input_focus(win, X.RevertToParent, int(time.time()))
+
+                        send_release(win, keycode)
+                        time.sleep(switching_period)
+                    # TODO just return to same focus
+                    clear_focus()
 
     except AttributeError:
         print('no detail')
-
-
 
