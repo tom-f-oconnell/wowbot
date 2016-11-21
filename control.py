@@ -11,6 +11,7 @@ def stop_grab(display):
     display.ungrab_keyboard(X.CurrentTime)
     display.flush()
 
+"""
 def send_key(d, root, win, keycode):
     #store current input focus
     currentfocus=d.get_input_focus()
@@ -34,6 +35,12 @@ def send_key(d, root, win, keycode):
     d.set_input_focus(currentfocus.focus,X.RevertToParent,X.CurrentTime)
 
     d.sync()
+"""
+
+def send_key(window, keycode, delay=0):
+    send_press(window, keycode)
+    time.sleep(delay)
+    send_release(window, keycode)
 
 # from http://shallowsky.com/software/crikey/pykey-0.1 
 def send_press(window, keycode):
@@ -120,6 +127,7 @@ def get_windows(display, name):
 
     return windows
 
+    # TODO why is this still here?
     # not using this anymore, dont think
     if win.get_wm_name().find(name) != -1:
         return win
@@ -160,7 +168,7 @@ print("FOUND " + str(len(windows)) + " WINDOWS")
 
 root.change_attributes(event_mask = X.KeyPressMask | X.KeyReleaseMask)
 currentfocus = None
-switching_period = 0.3
+switching_period = 0.15
 
 print("Press <ESC> or Ctrl+C to quit")
 while True:
@@ -193,33 +201,35 @@ while True:
 
             print("KEYCODE=" + str(keycode))
 
-            if keycode == 49 or keycode == 10 or keycode == 21:
-                if event.type == X.KeyPress:
-                    #print('SENDING KEYCODE: ' + str(keycode))
-                    for win in windows:
-                        ID = '0x0' + format(win.__window__(), '02x')
-                        change_focus_to_id(ID)
+            #if keycode == 49 or keycode == 10 or keycode == 21:
+            if event.type == X.KeyPress:
+                #print('SENDING KEYCODE: ' + str(keycode))
+                for win in windows:
+                    ID = '0x0' + format(win.__window__(), '02x')
+                    change_focus_to_id(ID)
 
-                        # didn't seem to work
-                        #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
-                        #d.set_input_focus(win, X.RevertToParent, int(time.time()))
+                    # didn't seem to work
+                    #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
+                    #d.set_input_focus(win, X.RevertToParent, int(time.time()))
 
-                        send_press(win, keycode)
-                        time.sleep(switching_period)
-                    clear_focus()
-                elif event.type == X.KeyRelease:
-                    for win in windows:
-                        ID = '0x0' + format(win.__window__(), '02x')
-                        change_focus_to_id(ID)
+                    #send_press(win, keycode)
+                    send_key(win, keycode)
 
-                        # didn't seem to work
-                        #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
-                        #d.set_input_focus(win, X.RevertToParent, int(time.time()))
+                    time.sleep(switching_period)
+                clear_focus()
+            elif event.type == X.KeyRelease:
+                for win in windows:
+                    ID = '0x0' + format(win.__window__(), '02x')
+                    change_focus_to_id(ID)
 
-                        send_release(win, keycode)
-                        time.sleep(switching_period)
-                    # TODO just return to same focus
-                    clear_focus()
+                    # didn't seem to work
+                    #d.set_input_focus(win, X.RevertToNone, X.CurrentTime)
+                    #d.set_input_focus(win, X.RevertToParent, int(time.time()))
+
+                    #send_release(win, keycode)
+                    time.sleep(switching_period)
+                # TODO just return to same focus
+                clear_focus()
 
     except AttributeError:
         print('no detail')
