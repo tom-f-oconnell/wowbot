@@ -1,12 +1,13 @@
 
 import time
 import pyxhook
-import subprocess
+import subprocess as sp
 import pyscreenshot as sc
 import re
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings
+import pickle
 
 # TODO why aren't these working?
 # because GTK was really verbose, and they weren't relevant
@@ -131,7 +132,7 @@ cy_re = re.compile("Absolute upper-left Y:  ([0-9]+)")
 h_re = re.compile("Height: ([0-9]+)")
 w_re = re.compile("Width: ([0-9]+)")
 
-out = str(subprocess.check_output(["xwininfo", "-name", 'World of Warcraft']))
+out = str(sp.check_output(["xwininfo", "-name", 'World of Warcraft']))
 print(out)
 
 cx = int(cx_re.search(out).groups()[0])
@@ -139,13 +140,6 @@ cy = int(cy_re.search(out).groups()[0])
 h = int(h_re.search(out).groups()[0])
 w = int(w_re.search(out).groups()[0])
 
-# 1 Gbyte
-# TODO actually 2.8 Gb. why?
-max_array_size_bytes = 1e9
-# uint8 should be 1 byte per point
-max_timesteps = round(max_array_size_bytes / (h * w))
-
-dt = 0.15 # seconds
 num_keys = len(keyset)
 num_mouse_buttons = len(mouseset)
 
@@ -153,7 +147,7 @@ both = keyset.union(mouseset)
 actionmap = dict(zip(sorted(list(both)), range(0, len(both))))
 
 # make the inverse map for decoding the numpy matrix entries
-num2key = {key: value for (value, key) in actionmap}
+num2key = {actionmap[k]: k for k in actionmap.keys()}
 
 # save it for decoding in other scripts
 with open("num2key.p", "wb") as p:
@@ -161,16 +155,34 @@ with open("num2key.p", "wb") as p:
 
 last_action = max(actionmap.values())
 
+max_secs = 10
+# this is out of our control
+byzanz_framerate = 25 #fps
+dt = (1 / byzanz_framerate) # seconds
+max_timesteps = max_secs / dt
+
+filename = 'video.flv'
+duration = round(dt * max_timesteps)
+delay = 0
+byzanz_args = ['-d', str(duration), '--delay='+str(delay), filename]
+
+# TODO why the left and the top?
+args = ['byzanz-record', '-x', str(cx), '-y', str(cy),\
+    '-w', str(w), '-h', str(h)] + byzanz_args
+
+print(args)
+sp.Popen(args)
+
+# TODO make all but mouse coords single bits
+actions = np.empty([num_keys + num_mouse_buttons + 2, max_timesteps], dtype=int) * np.nan
+curr = 0
+
+missing_keys = set()
 # 2 for both mouse coordinates
 # may try explicitly adding derivatives later (for at least 4 total dimensions)
 # but i don't have the best intuition about what is needed now
 
-# TODO make all but mouse coords single bits
-actions = np.empty([num_keys + num_mouse_buttons + 2, max_timesteps], dtype=int) * np.nan
-imgs = np.empty([h, w, 3, max_timesteps], dtype=np.uint8)
-curr = 0
-
-missing_keys = set()
+########################################################################################
 
 # TODO might need to protect against multithreading issues
 def OnKeyPress(event):
@@ -221,6 +233,8 @@ def MouseButtonDown(event):
     except KeyError:
         missing_keys.add(m)
 
+########################################################################################
+
 #instantiate HookManager class
 new_hook = pyxhook.HookManager()
 #listen to all keystrokes
@@ -233,28 +247,21 @@ new_hook.HookKeyboard()
 #start the session
 new_hook.start()
 
-print("after starting hook manager")
-
-while True:
+while curr < actions.shape[1]:
     print(str(curr) + '/' + str(max_timesteps))
-    # should be equal to the max tolerable length
-    if curr == len(imgs):
-        print('SAVING DATA...')
-        np.save('video', imgs)
-        np.save('actions', actions)
 
-    raw = sc.grab(bbox=(cx, cy, cx+w, cy+h))
-    imgs[:, :, :, curr] = np.asarray(raw)
-
-    #plt.imshow(img)
-    #plt.show()
-    #raw.save('sc.png')
+    # TODO it seems as though this sum sometimes gets over zero, but is strangely not monotonically increasing. must be overwriting stuff?
+    # TODO remove
 
     if curr >= 1:
         actions[:, curr] = actions[:, curr - 1]
     else:
         # TODO check for keys currently pressed?
         actions[:, curr] = np.zeros(actions.shape[0], dtype=int)
+
+    print(actions[:,curr])
+    print(np.sum(actions[:-2,:]))
+    print(np.nansum(actions[:-2,:]))
 
     actions[-1, curr] = new_hook.mouse_position_y
     actions[-2, curr] = new_hook.mouse_position_x
@@ -267,5 +274,11 @@ while True:
     curr = curr + 1
     # TODO verify the delay in the above portion is negligible
     time.sleep(dt)
+
+print('SAVING DATA...')
+np.save('actions', actions)
+
+print(byzanz_framerate * max_secs)
+print(np.shape(actions))
 
 new_hook.cancel()
